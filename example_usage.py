@@ -1,66 +1,235 @@
 #!/usr/bin/env python3
 """
-Example usage of the lang_select package
+Examples of how to use the lang-select package programmatically
 """
 
-import os
 import sys
-import argparse
-from lang_select import extract_items, select_item, select_with_external
+import json
 
+from lang_select import (
+    extract_items, 
+    select_item, 
+    select_with_external,
+    quick_select,
+    select_to_json,
+    ResponseManager
+)
 
-def read_file(file_path):
-    """Read file contents"""
-    with open(file_path, 'r', encoding='utf-8') as f:
-        return f.read()
-
-
-def main():
-    """Example main function"""
-    parser = argparse.ArgumentParser(description="Lang-Select Example Usage")
-    parser.add_argument("file", help="Path to LM response file")
-    parser.add_argument("--tool", choices=["internal", "fzf", "gum", "peco", "auto"], 
-                       default="auto", help="Selection tool to use")
-    args = parser.parse_args()
+def basic_usage():
+    """Basic usage example - extract and select items programmatically"""
+    # Example LLM response text
+    llm_response = """
+Here are the key steps for implementing a REST API:
+1. Define your API endpoints
+2. Design your data models
+3. Implement authentication
+4. Write controller logic
+5. Add input validation
+6. Implement error handling
+7. Write tests
+8. Deploy your API
+"""
     
-    # Read the input file
-    if not os.path.exists(args.file):
-        print(f"Error: File not found: {args.file}")
-        return 1
+    # Extract items from the response
+    items = extract_items(llm_response)
     
-    text = read_file(args.file)
-    
-    # Extract items from the text
-    items = extract_items(text)
-    
-    if not items:
-        print("No items found in the input text")
-        return 1
-    
+    # Show the extracted items
     print(f"Found {len(items)} items:")
     for item in items:
-        print(f"  {item.id}. {item.content}")
+        print(f"  {item}")
     
-    # Select an item
-    print("\nNow let's select an item:")
-    if args.tool == "internal":
-        selected = select_item(items, "Choose an item from the list")
-    else:
-        selected = select_with_external(items, tool=args.tool, prompt="Choose an item")
+    # Let the user select an item using the built-in selector
+    print("\nSelect an item using the built-in selector:")
+    selected = select_item(items, "Choose a step")
     
-    # Do something with the selected item
     if selected:
         print(f"\nYou selected: {selected.content}")
-        
-        # Example of using the selected item as input to another process
-        print(f"\nThis is where you might use this selection for further processing.")
-        print(f"For example, you could use it as input to another tool:")
-        print(f"  $ some-other-tool --input \"{selected.content}\"")
-    else:
-        print("\nNo selection made")
+
+
+def external_selector_example():
+    """Example using external selection tools like fzf"""
+    llm_response = """
+Tasks for today:
+- Send invoices to clients
+- Review pull requests
+- Update documentation
+- Schedule team meeting
+- Prepare demo for tomorrow
+"""
     
-    return 0
+    # Extract items from the response
+    items = extract_items(llm_response)
+    
+    # Let the user select an item using fzf (if available)
+    print("\nSelect a task using fzf (if available):")
+    selected = select_with_external(items, tool="fzf", prompt="Choose a task")
+    
+    if selected:
+        print(f"\nYou selected: {selected.content}")
+
+
+def convenience_functions_example():
+    """Example using the new convenience functions"""
+    llm_response = """
+Options for vacation destinations:
+1. Beach resort in Hawaii 
+2. Historical tour of Rome
+3. Safari adventure in Kenya
+4. Mountain retreat in Switzerland
+5. Cultural exploration in Japan
+"""
+    
+    # Using quick_select (one-liner)
+    print("\nUsing quick_select:")
+    selected = quick_select(llm_response, tool="auto")
+    if selected:
+        print(f"Selected: {selected}")
+
+    # Using select_to_json
+    print("\nUsing select_to_json:")
+    json_result = select_to_json(llm_response)
+    result = json.loads(json_result)
+    if result["success"]:
+        print(f"Selected: {result['selected']['content']}")
+    else:
+        print(f"Error: {result.get('error', 'Unknown error')}")
+
+
+def response_manager_example():
+    """Example using the ResponseManager"""
+    # Create a response manager with a file to store recent responses
+    manager = ResponseManager(recent_file="recent_response.txt")
+    
+    # Store a response
+    llm_response = """
+Recommended books:
+- The Pragmatic Programmer
+- Clean Code
+- Design Patterns
+- Refactoring
+- Domain-Driven Design
+"""
+    manager.store(llm_response)
+    
+    # Select from the stored response with feedback enabled
+    print("\nSelect from the stored response (with feedback):")
+    selected = manager.select(tool="auto", feedback=True)
+    
+    # Get information about the selection
+    selection_info = manager.get_selection_info()
+    print("\nSelection information:")
+    print(f"  Selected: {selection_info['selected']}")
+    print(f"  Number of items: {selection_info['num_items']}")
+    print(f"  Has selection: {selection_info['has_selection']}")
+    
+    # Get a summary of the selection
+    summary = manager.get_selection_summary()
+    print(f"\nSelection summary: {summary}")
+
+
+def callback_example():
+    """Example using callback functions with quick_select"""
+    llm_response = """
+Debugging strategies:
+1. Add print statements
+2. Use a debugger
+3. Check logs
+4. Reproduce the issue in isolation
+5. Binary search through the code
+"""
+    
+    # Define callback functions
+    def on_success(selection):
+        print(f"Success callback: You selected '{selection}'")
+        
+    def on_empty():
+        print("Empty callback: No items found to select from")
+        
+    def on_cancel():
+        print("Cancel callback: Selection was cancelled")
+    
+    # Use quick_select with callbacks
+    print("\nUsing quick_select with callbacks:")
+    result = quick_select(
+        llm_response, 
+        tool="auto",
+        prompt="Choose a debugging strategy",
+        on_success=on_success,
+        on_empty=on_empty,
+        on_cancel=on_cancel
+    )
+
+
+def cli_tool_integration_example():
+    """Example showing how to integrate with a CLI tool that uses the /select command"""
+    # This simulates a chat history with multiple messages
+    chat_history = [
+        {"role": "user", "content": "How do I optimize database queries?"},
+        {"role": "assistant", "content": """
+Here are several ways to optimize database queries:
+
+1. Use proper indexing
+2. Avoid SELECT *
+3. Use query caching
+4. Optimize JOINs
+5. Use EXPLAIN to analyze query performance
+6. Limit the number of rows returned
+7. Use stored procedures for complex queries
+8. Consider denormalization for read-heavy workloads
+"""},
+        {"role": "user", "content": "/select"}
+    ]
+    
+    # Implement the /select command
+    def cmd_select():
+        # Find the most recent assistant message
+        assistant_message = None
+        for message in reversed(chat_history):
+            if message["role"] == "assistant":
+                assistant_message = message["content"]
+                break
+        
+        if not assistant_message:
+            print("No assistant messages found in chat history")
+            return
+        
+        # Create a response manager
+        manager = ResponseManager()
+        manager.store(assistant_message)
+        
+        # Use select with feedback
+        print("\nSelecting from most recent assistant message:")
+        selected = manager.select(tool="auto", feedback=True)
+        
+        if selected:
+            print(f"\nCommand result: Selected \"{selected}\"")
+            # Here you would typically do something with the selection
+            print("Now you can use this selection for your next operation!")
+        else:
+            print("\nCommand result: No selection was made")
+            
+        # Get a summary for logging
+        print(f"\nLog entry: {manager.get_selection_summary()}")
+    
+    # Run the command
+    cmd_select()
 
 
 if __name__ == "__main__":
-    sys.exit(main()) 
+    print("=== Basic Usage Example ===")
+    basic_usage()
+    
+    print("\n=== External Selector Example ===")
+    external_selector_example()
+    
+    print("\n=== Convenience Functions Example ===")
+    convenience_functions_example()
+    
+    print("\n=== Response Manager Example ===")
+    response_manager_example()
+    
+    print("\n=== Callback Example ===")
+    callback_example()
+    
+    print("\n=== CLI Tool Integration Example ===")
+    cli_tool_integration_example() 

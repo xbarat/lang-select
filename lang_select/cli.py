@@ -34,7 +34,8 @@ def read_stdin() -> str:
 def main():
     """Main entry point for the CLI"""
     parser = argparse.ArgumentParser(description="Extract and select items from language model responses")
-    parser.add_argument("file", help="Path to the file containing LM response (use '-' for stdin)")
+    parser.add_argument("file", nargs="?", default="-", 
+                        help="Path to the file containing LM response (use '-' for stdin)")
     parser.add_argument("--tool", choices=["auto", "fzf", "gum", "peco", "internal"],
                         default="auto", help="Selection tool to use")
     parser.add_argument("--debug", action="store_true", help="Enable debug output")
@@ -42,10 +43,17 @@ def main():
                        help="Only print the parsed items without interactive selection")
     parser.add_argument("--json", action="store_true",
                        help="Output result as JSON (useful for scripting)")
+    parser.add_argument("--recent", type=str, 
+                       help="Path to a file that stores the most recent response")
+    parser.add_argument("--save-recent", type=str,
+                       help="Save the current input to the specified file for future use")
     args = parser.parse_args()
     
     # Read the input
-    if args.file == "-":
+    if args.recent and os.path.exists(args.recent):
+        # Prioritize the recent file if specified
+        text = read_file(args.recent)
+    elif args.file == "-":
         text = read_stdin()
     else:
         # Check if file exists
@@ -53,6 +61,16 @@ def main():
             print(f"Error: File not found: {args.file}", file=sys.stderr)
             sys.exit(1)
         text = read_file(args.file)
+    
+    # Save to recent file if requested
+    if args.save_recent:
+        try:
+            with open(args.save_recent, 'w', encoding='utf-8') as f:
+                f.write(text)
+            if args.debug:
+                print(f"Saved input to recent file: {args.save_recent}", file=sys.stderr)
+        except Exception as e:
+            print(f"Error saving to recent file: {e}", file=sys.stderr)
     
     # Extract items
     items = extract_items(text)
