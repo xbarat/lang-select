@@ -1,0 +1,15 @@
+LICENSE
+MANIFEST.in
+README.md
+pyproject.toml
+setup.py
+lang_select/__init__.py
+lang_select/cli.py
+lang_select/parser.py
+lang_select/selector.py
+lang_select.egg-info/PKG-INFO
+lang_select.egg-info/SOURCES.txt
+lang_select.egg-info/dependency_links.txt
+lang_select.egg-info/entry_points.txt
+lang_select.egg-info/requires.txt
+lang_select.egg-info/top_level.txt

@@ -1,0 +1,2 @@
+[console_scripts]
+lang-select = lang_select.cli:main
