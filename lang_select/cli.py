@@ -70,9 +70,12 @@ if click:
                   help="Use terminal overlay selection (requires textual package)")
     @click.option('--capture-terminal/--no-capture-terminal', default=False,
                   help="Capture terminal content and select from it (requires textual package)")
+    @click.option('--multi/--no-multi', default=False,
+                  help="Enable multi-selection mode")
     def main(file: str, tool: str, debug: bool, print_only: bool, json_output: bool, 
              recent: Optional[str] = None, save_recent: Optional[str] = None,
-             overlay: bool = False, capture_terminal: bool = False) -> None:
+             overlay: bool = False, capture_terminal: bool = False,
+             multi: bool = False) -> None:
         """Main entry point for the script"""
         # Handle overlay option
         if overlay:
@@ -130,22 +133,39 @@ if click:
         if print_only:
             sys.exit(0)
             
-        # Select an item
-        selected = select_with_external(items, tool=tool)
+        # Select item(s)
+        selected = select_with_external(items, tool=tool, multi_select=multi)
         
         if selected:
             if json_output:
-                result = {
-                    "success": True, 
-                    "selected": {
-                        "id": selected.id,
-                        "content": selected.content,
-                        "original_marker": selected.original_marker
+                if multi:
+                    result = {
+                        "success": True,
+                        "selected": [
+                            {
+                                "id": item.id,
+                                "content": item.content,
+                                "original_marker": item.original_marker
+                            }
+                            for item in selected
+                        ]
                     }
-                }
+                else:
+                    result = {
+                        "success": True, 
+                        "selected": {
+                            "id": selected.id,
+                            "content": selected.content,
+                            "original_marker": selected.original_marker
+                        }
+                    }
                 print(json.dumps(result))
             else:
-                print(selected.content)
+                if multi:
+                    for item in selected:
+                        print(item.content)
+                else:
+                    print(selected.content)
         else:
             if json_output:
                 print(json.dumps({"success": False, "error": "No selection made"}))
@@ -176,6 +196,8 @@ else:
                           help="Use terminal overlay selection (requires textual package)")
         parser.add_argument('--capture-terminal', action='store_true',
                           help="Capture terminal content and select from it (requires textual package)")
+        parser.add_argument('--multi', action='store_true',
+                          help="Enable multi-selection mode")
                           
         args = parser.parse_args()
         
@@ -235,22 +257,39 @@ else:
         if args.print_only:
             sys.exit(0)
             
-        # Select an item
-        selected = select_with_external(items, tool=args.tool)
+        # Select item(s)
+        selected = select_with_external(items, tool=args.tool, multi_select=args.multi)
         
         if selected:
             if args.json:
-                result = {
-                    "success": True, 
-                    "selected": {
-                        "id": selected.id,
-                        "content": selected.content,
-                        "original_marker": selected.original_marker
+                if args.multi:
+                    result = {
+                        "success": True,
+                        "selected": [
+                            {
+                                "id": item.id,
+                                "content": item.content,
+                                "original_marker": item.original_marker
+                            }
+                            for item in selected
+                        ]
                     }
-                }
+                else:
+                    result = {
+                        "success": True, 
+                        "selected": {
+                            "id": selected.id,
+                            "content": selected.content,
+                            "original_marker": selected.original_marker
+                        }
+                    }
                 print(json.dumps(result))
             else:
-                print(selected.content)
+                if args.multi:
+                    for item in selected:
+                        print(item.content)
+                else:
+                    print(selected.content)
         else:
             if args.json:
                 print(json.dumps({"success": False, "error": "No selection made"}))

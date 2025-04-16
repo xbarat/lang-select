@@ -9,6 +9,7 @@ Lang Select is a tool that helps you:
 1. Parse language model responses to extract numbered or bulleted lists
 2. Present those items in an interactive selector
 3. Use various selection interfaces (internal, fzf, overlay, etc.)
+4. Select single items or multiple items at once
 
 It's especially useful for interactive chat applications where you want to let users select from options provided by an LLM.
 
@@ -20,6 +21,7 @@ It's especially useful for interactive chat applications where you want to let u
   - Built-in terminal UI
   - External tools like fzf, gum, peco
   - Terminal overlay selection (v0.4.0+)
+- Multi-selection support for all selection methods (v0.5.0+)
 - Programmatic API for use in applications
 - Command-line interface for direct use
 - Terminal content capture and selection (v0.4.0+)
@@ -33,7 +35,7 @@ It's especially useful for interactive chat applications where you want to let u
 pip install lang-select
 
 # From GitHub
-pip install git+https://github.com/yourusername/lang-select.git
+pip install git+https://github.com/xbarat/lang-select.git
 ```
 
 ### With Optional Dependencies
@@ -70,11 +72,27 @@ lang-select --print-only response.txt
 lang-select --json response.txt
 ```
 
-### New in v0.4.0: Overlay Selection
+### Multi-Selection (v0.5.0+)
+
+```bash
+# Enable multi-selection mode (works with all tools)
+lang-select --multi response.txt
+
+# Using multi-select with a specific tool
+lang-select --tool fzf --multi response.txt
+
+# Multi-selection with JSON output
+lang-select --multi --json response.txt
+```
+
+### Overlay Selection (v0.4.0+)
 
 ```bash
 # Use terminal overlay for selection
 lang-select --overlay response.txt
+
+# Use overlay with multi-selection
+lang-select --overlay --multi response.txt
 
 # Capture terminal content and select from it
 lang-select --capture-terminal
@@ -114,6 +132,20 @@ if selected:
     print(f"You selected: {selected}")
 ```
 
+### Multi-Selection (v0.5.0+)
+
+```python
+from lang_select import quick_select
+
+text = "1. Option one\n2. Option two\n3. Option three"
+selected_items = quick_select(text, multi_select=True)
+
+if selected_items:
+    print(f"You selected {len(selected_items)} items:")
+    for item in selected_items:
+        print(f"- {item}")
+```
+
 ### Response Manager
 
 ```python
@@ -136,7 +168,24 @@ if selected:
     print(f"Selection info: {info}")
 ```
 
-### New in v0.4.0: Overlay Selection
+### Multi-Selection with ResponseManager (v0.5.0+)
+
+```python
+from lang_select import ResponseManager
+
+manager = ResponseManager()
+manager.store("1. Option one\n2. Option two\n3. Option three")
+
+# Select multiple items
+selected_items = manager.select(multi_select=True, feedback=True)
+
+if selected_items:
+    print(f"Selected {len(selected_items)} items:")
+    for item in selected_items:
+        print(f"- {item}")
+```
+
+### Overlay Selection (v0.4.0+)
 
 Terminal overlay selection provides a floating selection interface that appears on top of the terminal content.
 
@@ -150,6 +199,9 @@ if is_overlay_available():
     
     # Or capture terminal content and select from it
     selected = quick_overlay_select()
+    
+    # Multi-select with overlay (v0.5.0+)
+    selected_items = quick_overlay_select("1. Option one\n2. Option two", multi_select=True)
     
     if selected:
         print(f"Selected: {selected}")
@@ -165,6 +217,9 @@ manager.store("1. Option one\n2. Option two")
 
 # Use overlay selection
 selected = manager.select_with_overlay()
+
+# Multi-select with overlay (v0.5.0+)
+selected_items = manager.select_with_overlay(multi_select=True)
 
 if selected:
     print(f"Selected: {selected}")
@@ -185,9 +240,9 @@ def handle_llm_response(response_text):
     manager.store(response_text)
     # Display the response to the user...
 
-def handle_select_command():
-    """Handle when the user types /select"""
-    selected = manager.select(tool="fzf")
+def handle_select_command(multi=False):
+    """Handle when the user types /select or /multi-select"""
+    selected = manager.select(tool="fzf", multi_select=multi)
     if selected:
         print(f"Selected: {selected}")
         return selected
@@ -196,7 +251,7 @@ def handle_select_command():
         return None
 ```
 
-### New in v0.4.0: Overlay Selection in Chat Applications
+### Overlay Selection in Chat Applications
 
 ```python
 from lang_select import ResponseManager, is_overlay_available
@@ -209,14 +264,14 @@ def handle_llm_response(response_text):
     manager.store(response_text)
     # Display the response...
 
-def handle_select_command():
-    """Handle when the user types /select"""
+def handle_select_command(multi=False):
+    """Handle when the user types /select or /multi-select"""
     if is_overlay_available():
         # Use the overlay selector
-        selected = manager.select_with_overlay()
+        selected = manager.select_with_overlay(multi_select=multi)
     else:
         # Fall back to regular selection
-        selected = manager.select(tool="fzf")
+        selected = manager.select(tool="fzf", multi_select=multi)
         
     if selected:
         return selected
@@ -228,9 +283,9 @@ def handle_select_command():
 ```python
 from lang_select import quick_overlay_select
 
-def capture_and_select():
+def capture_and_select(multi=False):
     """Capture terminal content and select from it"""
-    selected = quick_overlay_select()
+    selected = quick_overlay_select(multi_select=multi)
     
     if selected:
         print(f"Selected: {selected}")
@@ -250,6 +305,7 @@ def capture_and_select():
 
 ## Version History
 
+- **0.5.0**: Added multi-selection support for all selection methods
 - **0.4.1**: Added missing `has_selectable_content` method to fix integration issues
 - **0.4.0**: Added terminal overlay selection and terminal content capture
 - **0.3.0**: Added ResponseManager, improved feedback options

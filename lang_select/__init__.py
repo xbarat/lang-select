@@ -2,12 +2,12 @@
 Lang Select - Extract selectable items from language model responses
 """
 
-__version__ = "0.4.1"
+__version__ = "0.5.0"
 
 import json
 import os
 import sys
-from typing import Optional, Dict, Any, List, Tuple, Callable
+from typing import Optional, Dict, Any, List, Tuple, Callable, Union
 
 from .parser import extract_items, extract_numbered_items, extract_bullet_items, SelectableItem
 from .selector import select_item, select_with_external, select_with_overlay, select_from_terminal
@@ -21,21 +21,24 @@ except ImportError:
 
 # New convenience functions
 def quick_select(text: str, tool: str = "auto", prompt: str = "Select an item",
-                on_success: Callable[[str], None] = None,
+                multi_select: bool = False,
+                on_success: Callable[[Union[str, List[str]]], None] = None,
                 on_empty: Callable[[], None] = None,
-                on_cancel: Callable[[], None] = None) -> Optional[str]:
+                on_cancel: Callable[[], None] = None) -> Optional[Union[str, List[str]]]:
     """One-line function to extract and select from text in a single call
     
     Args:
         text: Text content to extract items from
         tool: Selection tool to use ("auto", "fzf", "gum", "peco", "internal", "overlay")
         prompt: Prompt text to display
-        on_success: Optional callback function when an item is selected
+        multi_select: Whether to allow multiple selections
+        on_success: Optional callback function when item(s) are selected
         on_empty: Optional callback function when no items are found
         on_cancel: Optional callback function when selection is cancelled
         
     Returns:
-        Selected item content as string or None if no selection was made
+        If multi_select is False: Selected item content as string or None if no selection was made
+        If multi_select is True: List of selected item contents or None if no selection was made
     """
     items = extract_items(text)
     if not items:
@@ -43,9 +46,12 @@ def quick_select(text: str, tool: str = "auto", prompt: str = "Select an item",
             on_empty()
         return None
     
-    selected = select_with_external(items, tool=tool, prompt=prompt)
+    selected = select_with_external(items, tool=tool, prompt=prompt, multi_select=multi_select)
     if selected:
-        result = selected.content
+        if multi_select:
+            result = [item.content for item in selected]
+        else:
+            result = selected.content
         if on_success:
             on_success(result)
         return result
@@ -55,7 +61,8 @@ def quick_select(text: str, tool: str = "auto", prompt: str = "Select an item",
         return None
 
 
-def quick_overlay_select(text: str = None, prompt: str = "Select an item") -> Optional[str]:
+def quick_overlay_select(text: str = None, prompt: str = "Select an item", 
+                         multi_select: bool = False) -> Optional[Union[str, List[str]]]:
     """Capture terminal content (or use provided text) and show an overlay selector
     
     This function captures the current terminal content if no text is provided,
@@ -64,9 +71,11 @@ def quick_overlay_select(text: str = None, prompt: str = "Select an item") -> Op
     Args:
         text: Optional text to parse instead of capturing terminal content
         prompt: Prompt text to display
+        multi_select: Whether to allow multiple selections
         
     Returns:
-        Selected item content as string or None if no selection was made
+        If multi_select is False: Selected item content as string or None if no selection was made
+        If multi_select is True: List of selected item contents or empty list if no selection was made
     """
     if not TEXTUAL_AVAILABLE:
         print("Terminal overlay selection requires textual. Install with:")
@@ -76,19 +85,24 @@ def quick_overlay_select(text: str = None, prompt: str = "Select an item") -> Op
     # Import here to avoid issues if textual is not installed
     from .textual_overlay import overlay_select_from_recent
     
-    selected = overlay_select_from_recent(text, prompt)
+    selected = overlay_select_from_recent(text, prompt, multi_select=multi_select)
     if selected:
-        return selected.content
+        if multi_select:
+            return [item.content for item in selected]
+        else:
+            return selected.content
     return None
 
 
-def select_to_json(text: str, tool: str = "auto", prompt: str = "Select an item") -> str:
+def select_to_json(text: str, tool: str = "auto", prompt: str = "Select an item", 
+                   multi_select: bool = False) -> str:
     """Extract, select, and return result as JSON string
     
     Args:
         text: Text content to extract items from
         tool: Selection tool to use
         prompt: Prompt text to display
+        multi_select: Whether to allow multiple selections
         
     Returns:
         JSON string with selection result or error information
@@ -97,12 +111,18 @@ def select_to_json(text: str, tool: str = "auto", prompt: str = "Select an item"
     if not items:
         return json.dumps({"success": False, "error": "No items found"})
     
-    selected = select_with_external(items, tool=tool, prompt=prompt)
+    selected = select_with_external(items, tool=tool, prompt=prompt, multi_select=multi_select)
     if selected:
-        return json.dumps({
-            "success": True,
-            "selected": selected.to_dict()
-        })
+        if multi_select:
+            return json.dumps({
+                "success": True,
+                "selected": [item.to_dict() for item in selected]
+            })
+        else:
+            return json.dumps({
+                "success": True,
+                "selected": selected.to_dict()
+            })
     return json.dumps({"success": False, "error": "No selection made"})
 
 
@@ -113,48 +133,48 @@ class ResponseManager:
         """Initialize the response manager
         
         Args:
-            recent_file: Optional path to store the most recent response
+            recent_file: Optional path to a file that stores the most recent response
         """
         self.recent_response = None
         self.recent_file = recent_file
-        self.last_selection = None
         self.last_selected_items = []
+        self.last_selection = None
+        self.last_selections = []  # For multi-select support
         
-    def store(self, text: str) -> 'ResponseManager':
-        """Store a recent response
+    def store(self, response: str):
+        """Store a response for later selection
         
         Args:
-            text: Text content to store
-            
-        Returns:
-            Self for method chaining
+            response: Text content to store
         """
-        self.recent_response = text
-        self.last_selection = None
+        self.recent_response = response
         self.last_selected_items = []
+        self.last_selection = None
+        self.last_selections = []
         
-        # Optionally save to file if recent_file is specified
+        # Save to file if configured
         if self.recent_file:
             try:
                 with open(self.recent_file, 'w', encoding='utf-8') as f:
-                    f.write(text)
+                    f.write(response)
             except Exception:
-                pass  # Silently fail if we can't write to the file
-                
-        return self
+                pass
         
     def select(self, tool: str = "auto", prompt: str = "Select an item", 
-               feedback: bool = False, feedback_stream = sys.stdout) -> Optional[str]:
+               multi_select: bool = False,
+               feedback: bool = False, feedback_stream = sys.stdout) -> Optional[Union[str, List[str]]]:
         """Quick select from the stored response
         
         Args:
             tool: Selection tool to use
             prompt: Prompt text to display
+            multi_select: Whether to allow multiple selections
             feedback: Whether to print feedback about the selection
             feedback_stream: Stream to write feedback to (default: sys.stdout)
             
         Returns:
-            Selected item content as string or None if no selection was made
+            If multi_select is False: Selected item content as string or None if no selection was made
+            If multi_select is True: List of selected item contents or None if no selection was made
         """
         if not self.recent_response:
             # Try to load from file if available
@@ -182,28 +202,41 @@ class ResponseManager:
             for item in self.last_selected_items:
                 print(f"  {item}", file=feedback_stream)
             
-        selected = select_with_external(self.last_selected_items, tool=tool, prompt=prompt)
+        selected = select_with_external(self.last_selected_items, tool=tool, prompt=prompt, multi_select=multi_select)
         if selected:
-            self.last_selection = selected.content
-            if feedback:
-                print(f"\nSelected: {selected.content}", file=feedback_stream)
-            return selected.content
+            if multi_select:
+                self.last_selections = [item.content for item in selected]
+                self.last_selection = self.last_selections[0] if self.last_selections else None
+                if feedback:
+                    print("\nSelected items:", file=feedback_stream)
+                    for item in selected:
+                        print(f"  {item.content}", file=feedback_stream)
+                return self.last_selections
+            else:
+                self.last_selection = selected.content
+                self.last_selections = [self.last_selection] if self.last_selection else []
+                if feedback:
+                    print(f"\nSelected: {selected.content}", file=feedback_stream)
+                return self.last_selection
         else:
             if feedback:
                 print("No selection made", file=feedback_stream)
             return None
     
     def select_with_overlay(self, prompt: str = "Select an item",
-                           feedback: bool = False, feedback_stream = sys.stdout) -> Optional[str]:
+                           multi_select: bool = False,
+                           feedback: bool = False, feedback_stream = sys.stdout) -> Optional[Union[str, List[str]]]:
         """Select from the stored response using an overlay
         
         Args:
             prompt: Prompt text to display
+            multi_select: Whether to allow multiple selections
             feedback: Whether to print feedback about the selection
             feedback_stream: Stream to write feedback to (default: sys.stdout)
             
         Returns:
-            Selected item content as string or None if no selection was made
+            If multi_select is False: Selected item content as string or None if no selection was made
+            If multi_select is True: List of selected item contents or empty list if no selection was made
         """
         if not TEXTUAL_AVAILABLE:
             if feedback:
@@ -211,7 +244,8 @@ class ResponseManager:
                 print("pip install lang-select[textual]", file=feedback_stream)
             return None
             
-        return self.select(tool="overlay", prompt=prompt, feedback=feedback, feedback_stream=feedback_stream)
+        return self.select(tool="overlay", prompt=prompt, multi_select=multi_select, 
+                           feedback=feedback, feedback_stream=feedback_stream)
     
     def get_items(self) -> List[SelectableItem]:
         """Extract items from the stored response without selection
@@ -250,8 +284,9 @@ class ResponseManager:
         """
         return {
             "selected": self.last_selection,
+            "selected_items": self.last_selections,
             "num_items": len(self.last_selected_items) if self.last_selected_items else 0,
-            "has_selection": self.last_selection is not None,
+            "has_selection": bool(self.last_selections),
             "items": [item.to_dict() for item in self.last_selected_items] if self.last_selected_items else []
         }
     
@@ -264,11 +299,15 @@ class ResponseManager:
         if not self.last_selected_items:
             return "No items were found in the response"
         
-        if self.last_selection is None:
+        if not self.last_selections:
             return f"No selection was made from {len(self.last_selected_items)} available items"
         
-        return f"Selected: \"{self.last_selection}\" from {len(self.last_selected_items)} available items"
-    
+        if len(self.last_selections) == 1:
+            return f"Selected: \"{self.last_selections[0]}\" from {len(self.last_selected_items)} available items"
+        else:
+            selections = "\n".join(f"  - {item}" for item in self.last_selections)
+            return f"Selected {len(self.last_selections)} items from {len(self.last_selected_items)} available items:\n{selections}"
+
 
 def is_overlay_available() -> bool:
     """Check if the overlay functionality is available
