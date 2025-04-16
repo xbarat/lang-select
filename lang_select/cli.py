@@ -31,6 +31,13 @@ from .parser import extract_items, SelectableItem
 from .selector import select_with_external
 from .enhanced_extractor import extract_enhanced_items
 
+# Import our new formatters
+try:
+    from .formatter import create_formatter
+    FORMATTERS_AVAILABLE = True
+except ImportError:
+    FORMATTERS_AVAILABLE = False
+
 
 def read_file(path: str) -> str:
     """Read text from a file"""
@@ -75,10 +82,15 @@ if click:
                   help="Enable multi-selection mode")
     @click.option('--enhanced/--no-enhanced', default=False,
                   help="Use enhanced extraction with support for hierarchies and sections")
+    @click.option('--view', type=click.Choice(['flat', 'hierarchy', 'mixed']), default='flat',
+                  help="Choose display style for extracted items (requires enhanced extraction)")
+    @click.option('--no-color/--color', 'use_color', default=True,
+                  help="Disable colored output")
     def main(file: str, tool: str, debug: bool, print_only: bool, json_output: bool, 
              recent: Optional[str] = None, save_recent: Optional[str] = None,
              overlay: bool = False, capture_terminal: bool = False,
-             multi: bool = False, enhanced: bool = False) -> None:
+             multi: bool = False, enhanced: bool = False,
+             view: str = 'flat', use_color: bool = True) -> None:
         """Main entry point for the script"""
         # Handle overlay option
         if overlay:
@@ -117,6 +129,12 @@ if click:
             except Exception as e:
                 print(f"Error saving to recent file {save_recent}: {e}", file=sys.stderr)
         
+        # Set enhanced mode if view is hierarchy or mixed
+        if view in ['hierarchy', 'mixed'] and not enhanced:
+            enhanced = True
+            if debug:
+                print(f"Setting enhanced mode to True because view mode is {view}")
+        
         # Extract items from the text
         if enhanced:
             items = extract_enhanced_items(text)
@@ -130,7 +148,7 @@ if click:
                 print("No selectable items found in the text", file=sys.stderr)
             sys.exit(1)
             
-        if debug or print_only:
+        if debug:
             print(f"Found {len(items)} selectable items:")
             for item in items:
                 original = f"(original: {item.original_marker})" if item.original_marker else ""
@@ -140,6 +158,16 @@ if click:
                 print(f"  {item.id}. {item.content} {original} {section} {level} {parent}".strip())
                 
         if print_only:
+            # Use formatters if available and enhanced mode is on
+            if FORMATTERS_AVAILABLE and enhanced:
+                formatter = create_formatter(view, use_color)
+                print(formatter.format_items(items))
+            else:
+                # Fallback to simple printing
+                for item in items:
+                    prefix = f"[{item.section}] " if hasattr(item, 'section') and item.section else ""
+                    indent = "  " * getattr(item, 'level', 0) if hasattr(item, 'level') else ""
+                    print(f"{indent}• {prefix}{item.content}")
             sys.exit(0)
             
         # Select item(s)
@@ -209,6 +237,10 @@ else:
                           help="Enable multi-selection mode")
         parser.add_argument('--enhanced', action='store_true',
                           help="Use enhanced extraction with support for hierarchies and sections")
+        parser.add_argument('--view', choices=['flat', 'hierarchy', 'mixed'], default='flat',
+                          help="Choose display style for extracted items (requires enhanced extraction)")
+        parser.add_argument('--no-color', dest='use_color', action='store_false',
+                          help="Disable colored output")
                           
         args = parser.parse_args()
         
@@ -232,6 +264,12 @@ else:
             if selected:
                 print(selected.content)
             sys.exit(0)
+        
+        # Set enhanced mode if view is hierarchy or mixed
+        if args.view in ['hierarchy', 'mixed'] and not args.enhanced:
+            args.enhanced = True
+            if args.debug:
+                print(f"Setting enhanced mode to True because view mode is {args.view}")
         
         # Use the recent file if specified
         if args.recent and os.path.exists(args.recent):
@@ -262,7 +300,7 @@ else:
                 print("No selectable items found in the text", file=sys.stderr)
             sys.exit(1)
             
-        if args.debug or args.print_only:
+        if args.debug:
             print(f"Found {len(items)} selectable items:")
             for item in items:
                 original = f"(original: {item.original_marker})" if item.original_marker else ""
@@ -272,6 +310,16 @@ else:
                 print(f"  {item.id}. {item.content} {original} {section} {level} {parent}".strip())
                 
         if args.print_only:
+            # Use formatters if available and enhanced mode is on
+            if FORMATTERS_AVAILABLE and args.enhanced:
+                formatter = create_formatter(args.view, args.use_color)
+                print(formatter.format_items(items))
+            else:
+                # Fallback to simple printing
+                for item in items:
+                    prefix = f"[{item.section}] " if hasattr(item, 'section') and item.section else ""
+                    indent = "  " * getattr(item, 'level', 0) if hasattr(item, 'level') else ""
+                    print(f"{indent}• {prefix}{item.content}")
             sys.exit(0)
             
         # Select item(s)

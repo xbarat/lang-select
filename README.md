@@ -30,6 +30,11 @@ It's especially useful for interactive chat applications where you want to let u
 - Programmatic API for use in applications
 - Command-line interface for direct use
 - Terminal content capture and selection (v0.4.0+)
+- Multiple display styles for visualizing extracted content:
+  - Flat view: Simple bullet list with section labels
+  - Hierarchical view: Indented structure with different bullet styles per level
+  - Mixed view: Numbered top-level items with bulleted children
+- Colorized output for better readability
 
 ## Installation
 
@@ -117,6 +122,24 @@ lang-select --overlay --multi response.txt
 
 # Capture terminal content and select from it
 lang-select --capture-terminal
+```
+
+### Display Styles
+
+Lang Select supports multiple ways to display extracted content:
+
+```bash
+# Flat style (simple list with section labels)
+lang-select --enhanced --view flat response.txt
+
+# Hierarchical style (indented structure with different bullet styles)
+lang-select --enhanced --view hierarchy response.txt
+
+# Mixed style (numbered top-level items with bulleted children)
+lang-select --enhanced --view mixed response.txt
+
+# Disable colored output
+lang-select --enhanced --view hierarchy --no-color response.txt
 ```
 
 ## Programmatic Usage
@@ -298,6 +321,35 @@ if selected:
     print(f"Selected: {selected}")
 ```
 
+### Using Formatters
+
+```python
+from lang_select import extract_enhanced_items, create_formatter
+
+# Extract items from text
+text = "Your LLM response with lists here..."
+items = extract_enhanced_items(text)
+
+# Use different formatters
+from lang_select import FlatFormatter, HierarchicalFormatter, MixedFormatter
+
+# Flat style
+flat_formatter = FlatFormatter()
+print(flat_formatter.format_items(items))
+
+# Hierarchical style
+hierarchical_formatter = HierarchicalFormatter()
+print(hierarchical_formatter.format_items(items))
+
+# Mixed style (numbered + bullets)
+mixed_formatter = MixedFormatter()
+print(mixed_formatter.format_items(items))
+
+# Or use the factory function
+formatter = create_formatter('hierarchy', use_color=True)
+print(formatter.format_items(items))
+```
+
 ## Integration Examples
 
 ### Chat Application Integration
@@ -378,6 +430,7 @@ def capture_and_select(multi=False):
 
 ## Version History
 
+- **0.7.0** - Added multiple display styles (flat, hierarchy, mixed) with colorized output
 - **0.6.0** - Added enhanced extraction with hierarchical structure and section support
 - **0.5.0** - Added multi-selection support for all selection methods
 - **0.4.1**: Added missing `has_selectable_content` method to fix integration issues

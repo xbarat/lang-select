@@ -4,14 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lang-select"
-version = "0.6.0"
-description = "Tool to extract and select items from language model responses"
+description = "Extract and select numbered or bulleted items from language model responses"
 readme = "README.md"
 requires-python = ">=3.7"
-license = {file = "LICENSE"}
-keywords = ["llm", "gpt", "cli", "selection", "interactive", "hierarchy", "sections"]
+license = {text = "MIT"}
+dynamic = ["version"]
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "Your Name", email = "your.email@example.com"},
+]
+keywords = [
+    "cli", "language-model", "llm", "extraction", "selection", 
+    "multi-selection", "enhanced-extraction", "hierarchy", "formatting"
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -63,4 +66,7 @@ python_version = "3.7"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
-disallow_incomplete_defs = true 
+disallow_incomplete_defs = true
+
+[tool.hatch.version]
+path = "lang_select/__init__.py" 

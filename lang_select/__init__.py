@@ -2,7 +2,7 @@
 Lang Select - Extract selectable items from language model responses
 """
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 
 import json
 import os
@@ -19,6 +19,18 @@ try:
     TEXTUAL_AVAILABLE = True
 except ImportError:
     TEXTUAL_AVAILABLE = False
+
+# Export formatter classes
+try:
+    from .formatter import (
+        create_formatter,
+        FormatterBase,
+        FlatFormatter,
+        HierarchicalFormatter, 
+        MixedFormatter
+    )
+except ImportError:
+    pass  # Formatters may not be available
 
 # New convenience functions
 def quick_select(text: str, tool: str = "auto", prompt: str = "Select an item",
