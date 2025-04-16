@@ -271,6 +271,7 @@ def select_with_external(items: List[SelectableItem],
         temp_filename = f.name
         
         # Generate content for the file
+        use_color = False  # Only use color if we're using fzf with --ansi
         if FORMATTERS_AVAILABLE and any(hasattr(item, 'level') for item in items):
             # Create a copy of each item that includes its ID in the content
             display_items = []
@@ -289,8 +290,9 @@ def select_with_external(items: List[SelectableItem],
                         
                 display_items.append(display_item)
                 
-            # Format using appropriate formatter (but without color for file output)
-            formatter = create_formatter(view, use_color=False)
+            # Format using appropriate formatter (with color if we're using fzf)
+            use_color = (tool == "fzf")  # Only use color for fzf
+            formatter = create_formatter(view, use_color=use_color)
             f.write(formatter.format_items(display_items))
         else:
             # Fallback to simple display
@@ -303,6 +305,11 @@ def select_with_external(items: List[SelectableItem],
         # Build command based on the tool
         if tool == "fzf":
             cmd = ["fzf", "--layout=reverse", "--height=40%", f"--prompt={prompt}: "]
+            
+            # Add --ansi flag if we're using formatters with color
+            if use_color and FORMATTERS_AVAILABLE:
+                cmd.append("--ansi")
+                
             if multi_select:
                 cmd.append("--multi")
                 
@@ -338,11 +345,20 @@ def select_with_external(items: List[SelectableItem],
                 for line in selected_lines:
                     # Extract item ID from the start of the line
                     try:
-                        item_id = int(line.split(':', 1)[0])
-                        for item in items:
-                            if item.id == item_id:
-                                selected_items.append(item)
-                                break
+                        # If we're using color, we need to handle ANSI sequences
+                        if use_color:
+                            # Look for the item ID in the line
+                            for item in items:
+                                if f"{item.id}:" in line:
+                                    selected_items.append(item)
+                                    break
+                        else:
+                            # Standard extraction
+                            item_id = int(line.split(':', 1)[0])
+                            for item in items:
+                                if item.id == item_id:
+                                    selected_items.append(item)
+                                    break
                     except (ValueError, IndexError):
                         continue
                 
@@ -350,10 +366,18 @@ def select_with_external(items: List[SelectableItem],
             else:
                 # Single selection mode
                 try:
-                    item_id = int(selected_lines[0].split(':', 1)[0])
-                    for item in items:
-                        if item.id == item_id:
-                            return item
+                    # If we're using color, we need to handle ANSI sequences
+                    if use_color:
+                        # Look for the item ID in the line
+                        for item in items:
+                            if f"{item.id}:" in selected_lines[0]:
+                                return item
+                    else:
+                        # Standard extraction
+                        item_id = int(selected_lines[0].split(':', 1)[0])
+                        for item in items:
+                            if item.id == item_id:
+                                return item
                 except (ValueError, IndexError):
                     pass
     except Exception as e:

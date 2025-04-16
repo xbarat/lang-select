@@ -11,6 +11,7 @@ Lang Select is a tool that helps you:
 3. Use various selection interfaces (internal, fzf, overlay, etc.)
 4. Select single items or multiple items at once
 5. Extract hierarchical structure and section organization from complex text (v0.6.0+)
+6. Visualize extracted content with different display styles and colorized output (v0.7.0+)
 
 It's especially useful for interactive chat applications where you want to let users select from options provided by an LLM.
 
@@ -27,14 +28,14 @@ It's especially useful for interactive chat applications where you want to let u
   - Hierarchical list support (parent-child relationships)
   - Section recognition (markdown-style headers)
   - Additional format recognition (lettered lists, roman numerals, key-value pairs)
-- Programmatic API for use in applications
-- Command-line interface for direct use
-- Terminal content capture and selection (v0.4.0+)
-- Multiple display styles for visualizing extracted content:
+- Multiple display styles for visualizing extracted content (v0.7.0+):
   - Flat view: Simple bullet list with section labels
   - Hierarchical view: Indented structure with different bullet styles per level
   - Mixed view: Numbered top-level items with bulleted children
-- Colorized output for better readability
+- Colorized output for better readability with proper ANSI handling (v0.7.1+)
+- Programmatic API for use in applications
+- Command-line interface for direct use
+- Terminal content capture and selection (v0.4.0+)
 
 ## Installation
 
@@ -430,14 +431,15 @@ def capture_and_select(multi=False):
 
 ## Version History
 
+- **0.7.1** - Fixed ANSI color code handling for improved terminal compatibility
 - **0.7.0** - Added multiple display styles (flat, hierarchy, mixed) with colorized output
 - **0.6.0** - Added enhanced extraction with hierarchical structure and section support
 - **0.5.0** - Added multi-selection support for all selection methods
-- **0.4.1**: Added missing `has_selectable_content` method to fix integration issues
-- **0.4.0**: Added terminal overlay selection and terminal content capture
-- **0.3.0**: Added ResponseManager, improved feedback options
-- **0.2.0**: Added quick_select and improved API
-- **0.1.0**: Initial release with basic functionality
+- **0.4.1** - Added missing `has_selectable_content` method to fix integration issues
+- **0.4.0** - Added terminal overlay selection and terminal content capture
+- **0.3.0** - Added ResponseManager, improved feedback options
+- **0.2.0** - Added quick_select and improved API
+- **0.1.0** - Initial release with basic functionality
 
 ## License
 

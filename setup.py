@@ -12,8 +12,8 @@ with open(os.path.join(os.path.abspath(os.path.dirname(__file__)), "README.md"),
 
 setup(
     name="lang-select",
-    version="0.5.0",  # Updated version
-    description="Tool to extract and select items from language model responses",
+    version="0.7.1",  # Updated version
+    description="Extract and select items from language model responses with hierarchical formatting and colorized output",
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="barath",

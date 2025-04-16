@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lang-select"
-description = "Extract and select numbered or bulleted items from language model responses"
+description = "Extract and select numbered or bulleted items from language model responses with hierarchical formatting and colorized output"
 readme = "README.md"
 requires-python = ">=3.7"
 license = {text = "MIT"}
@@ -14,7 +14,8 @@ authors = [
 ]
 keywords = [
     "cli", "language-model", "llm", "extraction", "selection", 
-    "multi-selection", "enhanced-extraction", "hierarchy", "formatting"
+    "multi-selection", "enhanced-extraction", "hierarchy", "formatting",
+    "colorized", "visualization", "terminal-ui"
 ]
 classifiers = [
     "Development Status :: 4 - Beta",

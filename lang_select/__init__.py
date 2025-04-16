@@ -2,7 +2,7 @@
 Lang Select - Extract selectable items from language model responses
 """
 
-__version__ = "0.7.0"
+__version__ = "0.7.1"
 
 import json
 import os
