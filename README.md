@@ -1,260 +1,262 @@
 # Lang Select
 
-A Python package to extract selectable items from language model responses and present them for interactive selection.
+A utility for extracting and selecting items from language model responses.
 
-## Installation
+## Overview
 
-```bash
-pip install lang-select
-```
+Lang Select is a tool that helps you:
 
-For enhanced UI, install with Rich:
+1. Parse language model responses to extract numbered or bulleted lists
+2. Present those items in an interactive selector
+3. Use various selection interfaces (internal, fzf, overlay, etc.)
 
-```bash
-pip install lang-select[rich]
-```
-
-## Usage
-
-### Command Line
-
-```bash
-# Basic usage
-lang-select response.txt
-
-# Use specific tool
-lang-select response.txt --tool fzf
-
-# Just print extracted items
-lang-select response.txt --print-only
-
-# Output JSON for scripting
-lang-select response.txt --json
-
-# Read from stdin
-cat response.txt | lang-select -
-
-# Use a recent response file
-lang-select --recent recent_response.txt
-
-# Save the current input for future use
-lang-select response.txt --save-recent recent_response.txt
-```
-
-### Python API
-
-#### Basic Usage
-
-```python
-from lang_select import extract_items, select_item
-
-# Read text from somewhere
-with open("response.txt", "r") as f:
-    text = f.read()
-
-# Extract selectable items
-items = extract_items(text)
-
-# Display for selection
-selected = select_item(items, "Choose an option")
-if selected:
-    print(f"Selected: {selected.content}")
-
-# Or use external tools (fzf, gum, peco)
-from lang_select import select_with_external
-selected = select_with_external(items, tool="fzf")
-```
-
-#### New Simplified API (v0.2+)
-
-```python
-from lang_select import quick_select
-
-# One-liner to extract and select in a single call
-text = "1. Option one\n2. Option two\n3. Option three"
-selected = quick_select(text, tool="fzf")
-if selected:
-    print(f"Selected: {selected}")  # Returns the content string directly
-```
-
-#### With Callback Functions
-
-```python
-from lang_select import quick_select
-
-# Define callback functions for different outcomes
-def on_success(selection):
-    print(f"Success! You selected: {selection}")
-    
-def on_empty():
-    print("No selectable items found")
-    
-def on_cancel():
-    print("Selection was cancelled")
-
-# Use with callbacks
-selected = quick_select(
-    text,
-    tool="fzf",
-    on_success=on_success,
-    on_empty=on_empty,
-    on_cancel=on_cancel
-)
-```
-
-#### JSON Output
-
-```python
-from lang_select import select_to_json
-import json
-
-# Get result as JSON
-json_result = select_to_json(text)
-result = json.loads(json_result)
-
-if result["success"]:
-    print(f"Selected: {result['selected']['content']}")
-else:
-    print(f"Error: {result.get('error')}")
-```
-
-#### Response Manager for Recent Responses
-
-```python
-from lang_select import ResponseManager
-
-# Create a manager (optionally with file storage)
-manager = ResponseManager(recent_file="recent_response.txt")
-
-# Store a response
-manager.store(llm_response)
-
-# Later, select from the stored response with feedback
-selected = manager.select(tool="fzf", feedback=True)
-if selected:
-    # Process the selection
-    print(f"Selected: {selected}")
-
-# Get comprehensive information about the selection
-info = manager.get_selection_info()
-print(f"Selected: {info['selected']}")
-print(f"Number of items: {info['num_items']}")
-print(f"Has selection: {info['has_selection']}")
-
-# Get a human-readable summary for logging
-summary = manager.get_selection_summary()
-print(f"Summary: {summary}")
-```
+It's especially useful for interactive chat applications where you want to let users select from options provided by an LLM.
 
 ## Features
 
-- Extracts selectable items from various language model response formats:
-  - Numbered lists (1., 1), 1 -, etc.)
-  - Bulleted lists (•, *, -, +)
-  - Short paragraph items
-- Multiple selection interfaces:
+- Extract numbered lists (e.g., "1. First item", "2. Second item")
+- Extract bulleted lists (e.g., "• First item", "* Second item")
+- Interactive selection using:
   - Built-in terminal UI
-  - Rich-enhanced UI (if installed)
-  - External tools (fzf, gum, peco)
-- Easy integration with other Python code or scripts
-- NEW! Simplified API for common use cases:
-  - One-liner `quick_select()` function
-  - JSON output with `select_to_json()`
-  - `ResponseManager` for handling recent LLM responses
-- NEW! Comprehensive feedback mechanisms:
-  - Callback functions for different outcomes
-  - Detailed selection information
-  - Human-readable summaries for logging
+  - External tools like fzf, gum, peco
+  - Terminal overlay selection (v0.4.0+)
+- Programmatic API for use in applications
+- Command-line interface for direct use
+- Terminal content capture and selection (v0.4.0+)
 
-## Integration Examples
+## Installation
 
-### Using with LM responses directly
+### Basic Installation
+
+```bash
+# From PyPI (if published)
+pip install lang-select
+
+# From GitHub
+pip install git+https://github.com/yourusername/lang-select.git
+```
+
+### With Optional Dependencies
+
+```bash
+# With Rich for prettier output
+pip install lang-select[rich]
+
+# With Textual for overlay functionality
+pip install lang-select[textual]
+
+# With all optional dependencies
+pip install lang-select[all]
+```
+
+## Command-Line Usage
+
+### Basic Usage
+
+```bash
+# Select from a file
+lang-select path/to/response.txt
+
+# Select from stdin
+cat response.txt | lang-select -
+
+# Use a specific selection tool
+lang-select --tool fzf response.txt
+
+# Just print extracted items without selection
+lang-select --print-only response.txt
+
+# Output as JSON
+lang-select --json response.txt
+```
+
+### New in v0.4.0: Overlay Selection
+
+```bash
+# Use terminal overlay for selection
+lang-select --overlay response.txt
+
+# Capture terminal content and select from it
+lang-select --capture-terminal
+```
+
+## Programmatic Usage
+
+### Basic Usage
 
 ```python
-import requests
+from lang_select import extract_items, select_with_external
+
+# Parse text to extract items
+text = """
+Here are some options:
+1. First option
+2. Second option
+3. Third option
+"""
+
+items = extract_items(text)
+selected = select_with_external(items, tool="fzf")
+
+if selected:
+    print(f"Selected: {selected.content}")
+```
+
+### Quick Selection
+
+```python
 from lang_select import quick_select
 
-# Get a language model response
-response = requests.post("https://api.example.com/llm", json={"prompt": "List 5 programming languages"})
-text = response.json()["text"]
-
-# Extract and select in one line
+text = "1. Option one\n2. Option two\n3. Option three"
 selected = quick_select(text)
+
 if selected:
     print(f"You selected: {selected}")
 ```
 
-### CLI Tools with /select Command
+### Response Manager
 
 ```python
 from lang_select import ResponseManager
 
-# Sample chat history
-chat_history = [
-    {"role": "user", "content": "How do I optimize a database?"},
-    {"role": "assistant", "content": "1. Add indexes\n2. Optimize queries\n3. Use caching"},
-    {"role": "user", "content": "/select"}
-]
+# Create a manager
+manager = ResponseManager()
 
-# Implement /select command
-def cmd_select():
-    # Find most recent assistant message
-    for msg in reversed(chat_history):
-        if msg["role"] == "assistant":
-            # Create manager and store the message
-            manager = ResponseManager()
-            manager.store(msg["content"])
-            
-            # Select with feedback
-            selected = manager.select(tool="fzf", feedback=True)
-            
-            # Log the result
-            print(f"Log: {manager.get_selection_summary()}")
-            
-            # Return the selection for further processing
-            return selected
-            
-    print("No assistant messages found")
+# Store a response
+manager.store("1. First option\n2. Second option")
+
+# Select from it
+selected = manager.select(tool="fzf", feedback=True)
+
+if selected:
+    print(f"Selected: {selected}")
+    
+    # Get information about the selection
+    info = manager.get_selection_info()
+    print(f"Selection info: {info}")
+```
+
+### New in v0.4.0: Overlay Selection
+
+Terminal overlay selection provides a floating selection interface that appears on top of the terminal content.
+
+```python
+from lang_select import quick_overlay_select, is_overlay_available
+
+# Check if overlay is available (requires textual)
+if is_overlay_available():
+    # Select from provided text
+    selected = quick_overlay_select("1. Option one\n2. Option two")
+    
+    # Or capture terminal content and select from it
+    selected = quick_overlay_select()
+    
+    if selected:
+        print(f"Selected: {selected}")
+```
+
+Using with ResponseManager:
+
+```python
+from lang_select import ResponseManager
+
+manager = ResponseManager()
+manager.store("1. Option one\n2. Option two")
+
+# Use overlay selection
+selected = manager.select_with_overlay()
+
+if selected:
+    print(f"Selected: {selected}")
+```
+
+## Integration Examples
+
+### Chat Application Integration
+
+```python
+from lang_select import quick_select, ResponseManager
+
+# Store the latest LLM response
+manager = ResponseManager()
+
+def handle_llm_response(response_text):
+    """Handle a new response from the LLM"""
+    manager.store(response_text)
+    # Display the response to the user...
+
+def handle_select_command():
+    """Handle when the user types /select"""
+    selected = manager.select(tool="fzf")
+    if selected:
+        print(f"Selected: {selected}")
+        return selected
+    else:
+        print("No selection made")
+        return None
+```
+
+### New in v0.4.0: Overlay Selection in Chat Applications
+
+```python
+from lang_select import ResponseManager, is_overlay_available
+
+# Create a manager for LLM responses
+manager = ResponseManager()
+
+def handle_llm_response(response_text):
+    """Store the LLM response when received"""
+    manager.store(response_text)
+    # Display the response...
+
+def handle_select_command():
+    """Handle when the user types /select"""
+    if is_overlay_available():
+        # Use the overlay selector
+        selected = manager.select_with_overlay()
+    else:
+        # Fall back to regular selection
+        selected = manager.select(tool="fzf")
+        
+    if selected:
+        return selected
     return None
 ```
 
-### Integrating with other CLI tools
+### Terminal Content Capture
 
 ```python
-import subprocess
-from lang_select import ResponseManager
+from lang_select import quick_overlay_select
 
-# Create a manager for working with responses
-manager = ResponseManager()
-
-# Run an LM tool that outputs to stdout
-result = subprocess.run(["llm-tool", "generate", "list of tasks"], capture_output=True, text=True)
-text = result.stdout
-
-# Store the response
-manager.store(text)
-
-# Select with FZF
-selected = manager.select(tool="fzf")
-if selected:
-    # Use selected item as input to another tool
-    subprocess.run(["task-manager", "add", selected])
+def capture_and_select():
+    """Capture terminal content and select from it"""
+    selected = quick_overlay_select()
+    
+    if selected:
+        print(f"Selected: {selected}")
+    else:
+        print("No selection made")
 ```
 
-## One-liner Examples
+## Dependencies
 
-Extract numbered items from a file and pipe to fzf:
+- Core: No dependencies required
+- Rich UI: [rich](https://github.com/textualize/rich) (optional)
+- Terminal Overlay: [textual](https://github.com/textualize/textual) (optional)
+- External selectors:
+  - [fzf](https://github.com/junegunn/fzf) (optional)
+  - [gum](https://github.com/charmbracelet/gum) (optional)
+  - [peco](https://github.com/peco/peco) (optional)
 
-```bash
-grep -E '^\s*[0-9]+[.)\s-]' response.txt | sed -E 's/^\s*[0-9]+[.)\s-]+\s*//' | fzf
-```
+## Version History
 
-Extract bullet points from a file and choose with gum:
-
-```bash
-grep -E '^\s*[•*\-+]' response.txt | sed -E 's/^\s*[•*\-+]\s+//' | gum choose
-```
+- **0.4.1**: Added missing `has_selectable_content` method to fix integration issues
+- **0.4.0**: Added terminal overlay selection and terminal content capture
+- **0.3.0**: Added ResponseManager, improved feedback options
+- **0.2.0**: Added quick_select and improved API
+- **0.1.0**: Initial release with basic functionality
 
 ## License
 
-MIT 
+MIT License
+

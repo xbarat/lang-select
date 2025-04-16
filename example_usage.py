@@ -215,21 +215,61 @@ Here are several ways to optimize database queries:
     cmd_select()
 
 
+def example_has_selectable_content():
+    """Example demonstrating the has_selectable_content method"""
+    print("\n--- Example: Checking for Selectable Content ---")
+    
+    # Create a response manager
+    manager = ResponseManager()
+    
+    # Response with selectable content
+    response_with_items = """
+    Here are some options:
+    1. First option
+    2. Second option
+    3. Third option
+    """
+    
+    # Response without selectable content
+    response_without_items = """
+    Thanks for your message. I'll get back to you soon.
+    Have a great day!
+    """
+    
+    # Check response with items
+    manager.store(response_with_items)
+    if manager.has_selectable_content():
+        print("✅ Response contains selectable items.")
+        print(f"   Number of items: {len(manager.get_items())}")
+    else:
+        print("❌ Response does not contain selectable items.")
+    
+    # Check response without items
+    manager.store(response_without_items)
+    if manager.has_selectable_content():
+        print("✅ Response contains selectable items.")
+        print(f"   Number of items: {len(manager.get_items())}")
+    else:
+        print("❌ Response does not contain selectable items.")
+
+
+def main():
+    """Run all examples"""
+    try:
+        # Run examples
+        basic_usage()
+        external_selector_example()
+        convenience_functions_example()
+        response_manager_example()
+        callback_example()
+        cli_tool_integration_example()
+        example_has_selectable_content()
+        
+        return 0
+    except KeyboardInterrupt:
+        print("\nExamples interrupted.")
+        return 1
+
+
 if __name__ == "__main__":
-    print("=== Basic Usage Example ===")
-    basic_usage()
-    
-    print("\n=== External Selector Example ===")
-    external_selector_example()
-    
-    print("\n=== Convenience Functions Example ===")
-    convenience_functions_example()
-    
-    print("\n=== Response Manager Example ===")
-    response_manager_example()
-    
-    print("\n=== Callback Example ===")
-    callback_example()
-    
-    print("\n=== CLI Tool Integration Example ===")
-    cli_tool_integration_example() 
+    sys.exit(main()) 

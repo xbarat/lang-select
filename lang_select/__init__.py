@@ -2,7 +2,7 @@
 Lang Select - Extract selectable items from language model responses
 """
 
-__version__ = "0.3.0"
+__version__ = "0.4.1"
 
 import json
 import os
@@ -10,7 +10,14 @@ import sys
 from typing import Optional, Dict, Any, List, Tuple, Callable
 
 from .parser import extract_items, extract_numbered_items, extract_bullet_items, SelectableItem
-from .selector import select_item, select_with_external
+from .selector import select_item, select_with_external, select_with_overlay, select_from_terminal
+
+# Check if textual is available
+try:
+    import textual
+    TEXTUAL_AVAILABLE = True
+except ImportError:
+    TEXTUAL_AVAILABLE = False
 
 # New convenience functions
 def quick_select(text: str, tool: str = "auto", prompt: str = "Select an item",
@@ -21,7 +28,7 @@ def quick_select(text: str, tool: str = "auto", prompt: str = "Select an item",
     
     Args:
         text: Text content to extract items from
-        tool: Selection tool to use ("auto", "fzf", "gum", "peco", "internal")
+        tool: Selection tool to use ("auto", "fzf", "gum", "peco", "internal", "overlay")
         prompt: Prompt text to display
         on_success: Optional callback function when an item is selected
         on_empty: Optional callback function when no items are found
@@ -46,6 +53,33 @@ def quick_select(text: str, tool: str = "auto", prompt: str = "Select an item",
         if on_cancel:
             on_cancel()
         return None
+
+
+def quick_overlay_select(text: str = None, prompt: str = "Select an item") -> Optional[str]:
+    """Capture terminal content (or use provided text) and show an overlay selector
+    
+    This function captures the current terminal content if no text is provided,
+    extracts selectable items, and shows them in an overlay selector.
+    
+    Args:
+        text: Optional text to parse instead of capturing terminal content
+        prompt: Prompt text to display
+        
+    Returns:
+        Selected item content as string or None if no selection was made
+    """
+    if not TEXTUAL_AVAILABLE:
+        print("Terminal overlay selection requires textual. Install with:")
+        print("pip install lang-select[textual]")
+        return None
+        
+    # Import here to avoid issues if textual is not installed
+    from .textual_overlay import overlay_select_from_recent
+    
+    selected = overlay_select_from_recent(text, prompt)
+    if selected:
+        return selected.content
+    return None
 
 
 def select_to_json(text: str, tool: str = "auto", prompt: str = "Select an item") -> str:
@@ -159,6 +193,26 @@ class ResponseManager:
                 print("No selection made", file=feedback_stream)
             return None
     
+    def select_with_overlay(self, prompt: str = "Select an item",
+                           feedback: bool = False, feedback_stream = sys.stdout) -> Optional[str]:
+        """Select from the stored response using an overlay
+        
+        Args:
+            prompt: Prompt text to display
+            feedback: Whether to print feedback about the selection
+            feedback_stream: Stream to write feedback to (default: sys.stdout)
+            
+        Returns:
+            Selected item content as string or None if no selection was made
+        """
+        if not TEXTUAL_AVAILABLE:
+            if feedback:
+                print("Terminal overlay selection requires textual. Install with:", file=feedback_stream)
+                print("pip install lang-select[textual]", file=feedback_stream)
+            return None
+            
+        return self.select(tool="overlay", prompt=prompt, feedback=feedback, feedback_stream=feedback_stream)
+    
     def get_items(self) -> List[SelectableItem]:
         """Extract items from the stored response without selection
         
@@ -178,6 +232,15 @@ class ResponseManager:
         
         self.last_selected_items = extract_items(self.recent_response)        
         return self.last_selected_items
+    
+    def has_selectable_content(self) -> bool:
+        """Check if the stored response contains selectable items
+        
+        Returns:
+            True if the response contains selectable items, False otherwise
+        """
+        items = self.get_items()
+        return len(items) > 0
     
     def get_selection_info(self) -> Dict[str, Any]:
         """Get information about the last selection
@@ -205,7 +268,16 @@ class ResponseManager:
             return f"No selection was made from {len(self.last_selected_items)} available items"
         
         return f"Selected: \"{self.last_selection}\" from {len(self.last_selected_items)} available items"
+    
 
+def is_overlay_available() -> bool:
+    """Check if the overlay functionality is available
+    
+    Returns:
+        True if overlay is available, False otherwise
+    """
+    return TEXTUAL_AVAILABLE
+    
 
 __all__ = [
     "extract_items",
@@ -213,8 +285,12 @@ __all__ = [
     "extract_bullet_items",
     "select_item",
     "select_with_external",
+    "select_with_overlay",
+    "select_from_terminal",
     "SelectableItem",
     "quick_select",
+    "quick_overlay_select",
     "select_to_json",
-    "ResponseManager"
+    "ResponseManager",
+    "is_overlay_available"
 ] 

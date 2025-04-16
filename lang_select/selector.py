@@ -6,7 +6,7 @@ import os
 import sys
 import subprocess
 import tempfile
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any, Union, Callable
 
 try:
     from rich.console import Console
@@ -16,6 +16,15 @@ try:
     RICH_AVAILABLE = True
 except ImportError:
     RICH_AVAILABLE = False
+
+# Lazy import of textual_overlay to avoid import errors when not installed
+TEXTUAL_AVAILABLE = False
+try:
+    # Just check if the import would work, but don't actually import yet
+    import textual
+    TEXTUAL_AVAILABLE = True
+except ImportError:
+    TEXTUAL_AVAILABLE = False
 
 from .parser import SelectableItem
 
@@ -97,7 +106,7 @@ def select_with_external(items: List[SelectableItem],
     
     Args:
         items: List of SelectableItem objects
-        tool: Selection tool to use ("fzf", "gum", "peco", or "auto")
+        tool: Selection tool to use ("fzf", "gum", "peco", "auto", "overlay")
         prompt: Prompt text to display
         
     Returns:
@@ -106,8 +115,17 @@ def select_with_external(items: List[SelectableItem],
     if not items:
         return None
     
+    # Handle overlay as a special case
+    if tool == "overlay":
+        return select_with_overlay(items, prompt)
+    
     # Find available tool if set to auto
     if tool == "auto":
+        # Check for overlay first if available
+        if TEXTUAL_AVAILABLE and not os.environ.get("LANG_SELECT_NO_OVERLAY"):
+            return select_with_overlay(items, prompt)
+            
+        # Then check external tools
         for t in ["fzf", "gum", "peco"]:
             if _is_tool_available(t):
                 tool = t
@@ -172,6 +190,54 @@ def select_with_external(items: List[SelectableItem],
             os.unlink(temp_path)
     
     return None
+
+
+def select_with_overlay(items: List[SelectableItem], 
+                       prompt: str = "Select an item") -> Optional[SelectableItem]:
+    """
+    Use a terminal overlay to select from items.
+    Falls back to the built-in selector if textual is not available.
+    
+    Args:
+        items: List of SelectableItem objects
+        prompt: Prompt text to display
+        
+    Returns:
+        Selected item or None if selection was cancelled
+    """
+    # Lazy import to avoid requiring textual for basic functionality
+    if TEXTUAL_AVAILABLE:
+        # Only import when actually used
+        from .textual_overlay import select_with_textual_overlay
+        return select_with_textual_overlay(
+            items, 
+            prompt,
+            on_not_available=lambda: select_item(items, prompt)
+        )
+    else:
+        # Fall back to built-in selector
+        return select_item(items, prompt)
+
+
+def select_from_terminal(prompt: str = "Select an item") -> Optional[SelectableItem]:
+    """
+    Capture current terminal content, extract items, and show overlay selector.
+    Falls back to the built-in selector if textual is not available.
+    
+    Args:
+        prompt: Prompt text to display
+        
+    Returns:
+        Selected item or None if selection was cancelled
+    """
+    # Lazy import to avoid requiring textual for basic functionality
+    if TEXTUAL_AVAILABLE:
+        from .textual_overlay import overlay_select_from_recent
+        return overlay_select_from_recent(prompt=prompt)
+    else:
+        print("Terminal overlay selection requires textual. Install with:")
+        print("pip install lang-select[textual]")
+        return None
 
 
 def _is_tool_available(name: str) -> bool:
