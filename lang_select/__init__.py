@@ -2,7 +2,7 @@
 Lang Select - Extract selectable items from language model responses
 """
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 import json
 import os
@@ -11,6 +11,7 @@ from typing import Optional, Dict, Any, List, Tuple, Callable, Union
 
 from .parser import extract_items, extract_numbered_items, extract_bullet_items, SelectableItem
 from .selector import select_item, select_with_external, select_with_overlay, select_from_terminal
+from .enhanced_extractor import EnhancedExtractor, ExtendedSelectableItem, EnhancedResponseManager, extract_enhanced_items
 
 # Check if textual is available
 try:
@@ -24,7 +25,8 @@ def quick_select(text: str, tool: str = "auto", prompt: str = "Select an item",
                 multi_select: bool = False,
                 on_success: Callable[[Union[str, List[str]]], None] = None,
                 on_empty: Callable[[], None] = None,
-                on_cancel: Callable[[], None] = None) -> Optional[Union[str, List[str]]]:
+                on_cancel: Callable[[], None] = None,
+                use_enhanced: bool = False) -> Optional[Union[str, List[str]]]:
     """One-line function to extract and select from text in a single call
     
     Args:
@@ -35,12 +37,17 @@ def quick_select(text: str, tool: str = "auto", prompt: str = "Select an item",
         on_success: Optional callback function when item(s) are selected
         on_empty: Optional callback function when no items are found
         on_cancel: Optional callback function when selection is cancelled
+        use_enhanced: Whether to use the enhanced extractor (for better hierarchy and section support)
         
     Returns:
         If multi_select is False: Selected item content as string or None if no selection was made
         If multi_select is True: List of selected item contents or None if no selection was made
     """
-    items = extract_items(text)
+    if use_enhanced:
+        items = extract_enhanced_items(text)
+    else:
+        items = extract_items(text)
+        
     if not items:
         if on_empty:
             on_empty()
@@ -129,17 +136,19 @@ def select_to_json(text: str, tool: str = "auto", prompt: str = "Select an item"
 class ResponseManager:
     """Manager for handling recent language model responses"""
     
-    def __init__(self, recent_file: str = None):
+    def __init__(self, recent_file: str = None, use_enhanced: bool = False):
         """Initialize the response manager
         
         Args:
             recent_file: Optional path to a file that stores the most recent response
+            use_enhanced: Whether to use the enhanced extractor for better hierarchy and section support
         """
         self.recent_response = None
         self.recent_file = recent_file
         self.last_selected_items = []
         self.last_selection = None
         self.last_selections = []  # For multi-select support
+        self.use_enhanced = use_enhanced
         
     def store(self, response: str):
         """Store a response for later selection
@@ -248,23 +257,24 @@ class ResponseManager:
                            feedback=feedback, feedback_stream=feedback_stream)
     
     def get_items(self) -> List[SelectableItem]:
-        """Extract items from the stored response without selection
+        """Get the selectable items from the last stored response
         
         Returns:
-            List of SelectableItem objects or empty list if no items found
+            List of SelectableItem objects
         """
         if not self.recent_response:
-            # Try to load from file if available
-            if self.recent_file and os.path.exists(self.recent_file):
-                try:
-                    with open(self.recent_file, 'r', encoding='utf-8') as f:
-                        self.recent_response = f.read()
-                except Exception:
-                    return []
-            else:
-                return []
+            return []
         
-        self.last_selected_items = extract_items(self.recent_response)        
+        # If we've already parsed this response, return the cached items
+        if self.last_selected_items:
+            return self.last_selected_items
+        
+        # Otherwise, parse the response and cache the results
+        if self.use_enhanced:
+            self.last_selected_items = extract_enhanced_items(self.recent_response)
+        else:
+            self.last_selected_items = extract_items(self.recent_response)
+        
         return self.last_selected_items
     
     def has_selectable_content(self) -> bool:

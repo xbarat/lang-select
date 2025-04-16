@@ -10,6 +10,7 @@ Lang Select is a tool that helps you:
 2. Present those items in an interactive selector
 3. Use various selection interfaces (internal, fzf, overlay, etc.)
 4. Select single items or multiple items at once
+5. Extract hierarchical structure and section organization from complex text (v0.6.0+)
 
 It's especially useful for interactive chat applications where you want to let users select from options provided by an LLM.
 
@@ -22,6 +23,10 @@ It's especially useful for interactive chat applications where you want to let u
   - External tools like fzf, gum, peco
   - Terminal overlay selection (v0.4.0+)
 - Multi-selection support for all selection methods (v0.5.0+)
+- Enhanced extraction capabilities (v0.6.0+):
+  - Hierarchical list support (parent-child relationships)
+  - Section recognition (markdown-style headers)
+  - Additional format recognition (lettered lists, roman numerals, key-value pairs)
 - Programmatic API for use in applications
 - Command-line interface for direct use
 - Terminal content capture and selection (v0.4.0+)
@@ -72,6 +77,22 @@ lang-select --print-only response.txt
 lang-select --json response.txt
 ```
 
+### Enhanced Extraction (v0.6.0+)
+
+```bash
+# Use enhanced extraction capabilities
+lang-select --enhanced response.txt
+
+# Print hierarchical items with section information
+lang-select --enhanced --print-only response.txt
+
+# Enhanced extraction with JSON output
+lang-select --enhanced --json response.txt
+
+# Use enhanced extraction with overlay and multi-selection
+lang-select --enhanced --overlay --multi response.txt
+```
+
 ### Multi-Selection (v0.5.0+)
 
 ```bash
@@ -120,6 +141,49 @@ if selected:
     print(f"Selected: {selected.content}")
 ```
 
+### Enhanced Extraction (v0.6.0+)
+
+```python
+from lang_select import extract_enhanced_items, EnhancedResponseManager
+
+# Sample text with hierarchical structure and sections
+text = """
+# Project Tasks
+
+1. Phase One
+   a. Research requirements
+   b. Create prototype
+      i. Design UI mockups
+      ii. Implement basic functionality
+
+# Timeline
+- Week 1: Planning
+- Week 2: Development
+- Week 3: Testing
+"""
+
+# Extract with hierarchy and section awareness
+items = extract_enhanced_items(text)
+
+# Print items with their structure
+for item in items:
+    indent = "  " * item.level
+    section = f" [Section: {item.section}]" if item.section else ""
+    parent = f" [Parent: {item.parent_id}]" if item.parent_id else ""
+    print(f"{indent}{item.id}. {item.content}{section}{parent}")
+
+# Use the enhanced response manager
+manager = EnhancedResponseManager()
+manager.store(text)
+
+# Get items organized by section
+sections = manager.get_sections()
+for section_name, section_items in sections.items():
+    print(f"\n=== {section_name} ===")
+    for item in section_items:
+        print(f"- {item.content}")
+```
+
 ### Quick Selection
 
 ```python
@@ -127,6 +191,9 @@ from lang_select import quick_select
 
 text = "1. Option one\n2. Option two\n3. Option three"
 selected = quick_select(text)
+
+# Use enhanced extraction
+selected = quick_select(text, use_enhanced=True)
 
 if selected:
     print(f"You selected: {selected}")
@@ -140,6 +207,9 @@ from lang_select import quick_select
 text = "1. Option one\n2. Option two\n3. Option three"
 selected_items = quick_select(text, multi_select=True)
 
+# With enhanced extraction
+selected_items = quick_select(text, multi_select=True, use_enhanced=True)
+
 if selected_items:
     print(f"You selected {len(selected_items)} items:")
     for item in selected_items:
@@ -151,8 +221,11 @@ if selected_items:
 ```python
 from lang_select import ResponseManager
 
-# Create a manager
-manager = ResponseManager()
+# Create a manager (optionally with enhanced extraction)
+manager = ResponseManager(use_enhanced=False)
+
+# With enhanced extraction capabilities
+enhanced_manager = ResponseManager(use_enhanced=True)
 
 # Store a response
 manager.store("1. First option\n2. Second option")
@@ -305,7 +378,8 @@ def capture_and_select(multi=False):
 
 ## Version History
 
-- **0.5.0**: Added multi-selection support for all selection methods
+- **0.6.0** - Added enhanced extraction with hierarchical structure and section support
+- **0.5.0** - Added multi-selection support for all selection methods
 - **0.4.1**: Added missing `has_selectable_content` method to fix integration issues
 - **0.4.0**: Added terminal overlay selection and terminal content capture
 - **0.3.0**: Added ResponseManager, improved feedback options

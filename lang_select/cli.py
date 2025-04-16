@@ -29,6 +29,7 @@ except ImportError:
 
 from .parser import extract_items, SelectableItem
 from .selector import select_with_external
+from .enhanced_extractor import extract_enhanced_items
 
 
 def read_file(path: str) -> str:
@@ -72,10 +73,12 @@ if click:
                   help="Capture terminal content and select from it (requires textual package)")
     @click.option('--multi/--no-multi', default=False,
                   help="Enable multi-selection mode")
+    @click.option('--enhanced/--no-enhanced', default=False,
+                  help="Use enhanced extraction with support for hierarchies and sections")
     def main(file: str, tool: str, debug: bool, print_only: bool, json_output: bool, 
              recent: Optional[str] = None, save_recent: Optional[str] = None,
              overlay: bool = False, capture_terminal: bool = False,
-             multi: bool = False) -> None:
+             multi: bool = False, enhanced: bool = False) -> None:
         """Main entry point for the script"""
         # Handle overlay option
         if overlay:
@@ -115,7 +118,10 @@ if click:
                 print(f"Error saving to recent file {save_recent}: {e}", file=sys.stderr)
         
         # Extract items from the text
-        items = extract_items(text)
+        if enhanced:
+            items = extract_enhanced_items(text)
+        else:
+            items = extract_items(text)
         
         if not items:
             if json_output:
@@ -128,7 +134,10 @@ if click:
             print(f"Found {len(items)} selectable items:")
             for item in items:
                 original = f"(original: {item.original_marker})" if item.original_marker else ""
-                print(f"  {item.id}. {item.content} {original}")
+                section = f"[section: {item.section}]" if hasattr(item, 'section') and item.section else ""
+                level = f"[level: {item.level}]" if hasattr(item, 'level') and item.level > 0 else ""
+                parent = f"[parent: {item.parent_id}]" if hasattr(item, 'parent_id') and item.parent_id else ""
+                print(f"  {item.id}. {item.content} {original} {section} {level} {parent}".strip())
                 
         if print_only:
             sys.exit(0)
@@ -198,6 +207,8 @@ else:
                           help="Capture terminal content and select from it (requires textual package)")
         parser.add_argument('--multi', action='store_true',
                           help="Enable multi-selection mode")
+        parser.add_argument('--enhanced', action='store_true',
+                          help="Use enhanced extraction with support for hierarchies and sections")
                           
         args = parser.parse_args()
         
@@ -239,7 +250,10 @@ else:
                 print(f"Error saving to recent file {args.save_recent}: {e}", file=sys.stderr)
         
         # Extract items from the text
-        items = extract_items(text)
+        if args.enhanced:
+            items = extract_enhanced_items(text)
+        else:
+            items = extract_items(text)
         
         if not items:
             if args.json:
@@ -252,7 +266,10 @@ else:
             print(f"Found {len(items)} selectable items:")
             for item in items:
                 original = f"(original: {item.original_marker})" if item.original_marker else ""
-                print(f"  {item.id}. {item.content} {original}")
+                section = f"[section: {item.section}]" if hasattr(item, 'section') and item.section else ""
+                level = f"[level: {item.level}]" if hasattr(item, 'level') and item.level > 0 else ""
+                parent = f"[parent: {item.parent_id}]" if hasattr(item, 'parent_id') and item.parent_id else ""
+                print(f"  {item.id}. {item.content} {original} {section} {level} {parent}".strip())
                 
         if args.print_only:
             sys.exit(0)
